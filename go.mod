@@ -12,8 +12,10 @@ require (
 	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/peterh/liner v1.1.0 // indirect
-	github.com/sirupsen/logrus v1.4.2 // indirect
+	github.com/pkg/errors v0.8.1 // indirect
+	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
+	github.com/vmware-tanzu/velero v1.2.0
 	go.starlark.net v0.0.0-20191202231402-1e82a9dd93ba // indirect
 	golang.org/x/arch v0.0.0-20191126211547-368ea8f32fff // indirect
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413 // indirect
@@ -22,6 +24,7 @@ require (
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
+	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.17.0
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
 )
