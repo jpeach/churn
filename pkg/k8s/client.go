@@ -2,8 +2,9 @@ package k8s
 
 import (
 	"fmt"
-	"k8s.io/client-go/informers"
 	"time"
+
+	"k8s.io/client-go/informers"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,6 +41,16 @@ func NewClientset() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(restConfig)
 }
 
+// NewDynamicClientset returns a new defaulted dynamic.Interface.
+func NewDynamicClientset() (dynamic.Interface, error) {
+	restConfig, err := DefaultClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build client config: %w", err)
+	}
+
+	return dynamic.NewForConfig(restConfig)
+}
+
 type DiscoveryHelper = velero.Helper
 
 // NewDiscoveryHelper returns a new resource discovery helper.
@@ -47,6 +58,28 @@ func NewDiscoveryHelper(cs *kubernetes.Clientset) (DiscoveryHelper, error) {
 	logger, _ := test.NewNullLogger()
 
 	return velero.NewHelper(memory.NewMemCacheClient(cs.Discovery()), logger)
+}
+
+// NewDynamicInformerFactory returns an configured dynamic informer factory.
+func NewDynamicInformerFactory(optionsFunc dynamicinformer.TweakListOptionsFunc) (dynamicinformer.DynamicSharedInformerFactory, error) {
+	restConfig, err := DefaultClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build client config: %w", err)
+	}
+
+	dynamicInterface, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
+		dynamicInterface,
+		10*time.Minute,
+		v1.NamespaceAll,
+		optionsFunc,
+	)
+
+	return dynamicFactory, nil
 }
 
 // NewDynamicInformer returns an informer for the given resource type.
