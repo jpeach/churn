@@ -2,8 +2,8 @@ package workload
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,12 +27,7 @@ var DefaultDeleteCandidates = []schema.GroupVersionResource{
 	{Group: "", Version: "v1", Resource: "pods"},
 }
 
-type Deleter interface {
-	DeleteObjects(limit int) error
-	Close()
-}
-
-func NewDeleter(resources []schema.GroupVersionResource) (Deleter, error) {
+func NewDeleterForPolicy(p Policy) (Task, error) {
 	c, err := k8s.NewDynamicClientset()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
@@ -48,11 +43,13 @@ func NewDeleter(resources []schema.GroupVersionResource) (Deleter, error) {
 
 	d := &resourceDeleter{
 		client:    c,
+		limit:     p.Limit,
+		interval:  p.Interval,
 		informers: make(map[schema.GroupVersionResource]informers.GenericInformer),
 		stopChan:  make(chan struct{}),
 	}
 
-	for _, r := range resources {
+	for _, r := range p.Resources {
 		if _, ok := d.informers[r]; ok {
 			return nil, fmt.Errorf("duplicate resource: %s", r)
 		}
@@ -69,19 +66,28 @@ func NewDeleter(resources []schema.GroupVersionResource) (Deleter, error) {
 	return d, nil
 }
 
-var _ Deleter = &resourceDeleter{}
+var _ Task = &resourceDeleter{}
 
 type resourceDeleter struct {
 	client    dynamic.Interface
 	informers map[schema.GroupVersionResource]informers.GenericInformer
-	stopChan  chan struct{}
+
+	limit    int
+	interval time.Duration
+
+	stopChan chan struct{}
 }
 
-func (d resourceDeleter) Close() {
+func (d resourceDeleter) Interval() time.Duration {
+	return d.interval
+}
+
+func (d resourceDeleter) Finalize() error {
 	close(d.stopChan)
+	return nil
 }
 
-func (d resourceDeleter) DeleteObjects(limit int) error {
+func (d resourceDeleter) Perform() error {
 	type candidate struct {
 		gvr schema.GroupVersionResource
 		obj *unstructured.Unstructured
@@ -91,7 +97,7 @@ func (d resourceDeleter) DeleteObjects(limit int) error {
 
 	for gvr, i := range d.informers {
 		if !i.Informer().HasSynced() {
-			log.Printf("unsynced informer")
+			continue
 		}
 
 		objects, err := i.Lister().List(labels.Everything())
@@ -107,19 +113,14 @@ func (d resourceDeleter) DeleteObjects(limit int) error {
 		}
 	}
 
-	// TODO(jpeach) random shuffle the candidates and nuke the limit count.
-
 	rand.Shuffle(len(candidates), func(i int, j int) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
 
 	for i, c := range candidates {
-		if i >= limit {
+		if i >= d.limit {
 			break
 		}
-
-		log.Printf("deleting object: %s, namespace=%s name=%s",
-			c.gvr, c.obj.GetNamespace(), c.obj.GetName())
 
 		err := d.client.Resource(c.gvr).Namespace(c.obj.GetNamespace()).Delete(
 			c.obj.GetName(),
@@ -127,6 +128,9 @@ func (d resourceDeleter) DeleteObjects(limit int) error {
 		if err != nil {
 			return err
 		}
+
+		// TODO(jpeach): Wrap this in a package and emit with timestamp ...
+		fmt.Printf("💀 deleted %s %s/%s\n", c.obj.GetKind(), c.obj.GetNamespace(), c.obj.GetName())
 	}
 
 	return nil
