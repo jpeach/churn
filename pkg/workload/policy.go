@@ -31,7 +31,7 @@ type Policy struct {
 // ParsePolicySpec parses a policy specification string. A policy
 // specification string is of the form:
 //
-//	OPERATION[:RESOURCE|PARAM=VALUE,[RESOURCE|PARAM=VALUE...]]
+//	OPERATION[:RESOURCE|PARAM=VALUE[,RESOURCE|PARAM=VALUE]...]
 func ParsePolicySpec(specString string) (PolicySpec, error) {
 	if specString == "" {
 		return PolicySpec{}, fmt.Errorf("empty policy specification")

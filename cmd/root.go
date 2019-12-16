@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -15,13 +14,61 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func ErrUsage(cmd *cobra.Command) {
+	fmt.Printf(cmd.UsageString())
+	os.Exit(64)
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:           "churn",
-	Short:         "churn a set of Kubernetes objects in a cluster",
+	Use:           "churn [flags] OPERATION[:RESOURCE|PARAM=VALUE[,RESOURCE|PARAM=VALUE]...]",
 	RunE:          Churn,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+
+	Short: "churn a set of Kubernetes objects in a cluster",
+	Long:  "churn generates Kubernetes object workloads in a cluster",
+	Example: `  Delete 1 default resource each 5sec:
+    $ churn delete:limit=1,interval=5s
+
+  Delete pods and httpproxies at different rates:
+    $ churn delete:pods,limit=10,interval=1m \
+        delete:httpproxies,limit=1,interval=30s`,
+}
+
+func churnHelp(c *cobra.Command, _ []string) {
+	fmt.Printf("%s\n", c.Long)
+	fmt.Printf("\nUsage:\n  %s\n", c.UseLine())
+
+	fmt.Printf(`
+Operations:
+  The general syntax of an operation specification is the name of the
+  workload operation, separated from an optional comma-separated list
+  of resources and parameters by a colon. A parameter is a key=value
+  token that controls an aspect of the workload task.
+
+Operation Types:
+  delete    Deletes Kubernetes API objects. If no resources are
+            specified, this operation deletes httpproxies, ingresses,
+            services and pods.
+
+Parameters:
+  limit=COUNT
+            Apply the operation oon up to COUNT objects per interval.
+  interval=DURATION
+            Apply the operation once per DURATION interval. The
+            DURATION is a Go time.Duration string, e.g. "1m30s".
+`)
+
+	fmt.Printf("\nFlags:\n%s", c.LocalFlags().FlagUsages())
+
+	if c.HasExample() {
+		fmt.Printf("\nExamples:\n%s\n", c.Example)
+	}
+}
+
+func init() {
+	rootCmd.SetHelpFunc(churnHelp)
 }
 
 func parsePolicySpecs(args []string) ([]workload.PolicySpec, error) {
@@ -85,8 +132,7 @@ func Churn(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(specs) == 0 {
-		log.Printf("usage: churn TASKSPEC [TASKSPEC...]")
-		return nil
+		ErrUsage(cmd)
 	}
 
 	cs, err := k8s.NewClientset()
