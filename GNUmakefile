@@ -16,6 +16,9 @@ help:
 build: ## Build
 	$(GO) build -o $(BIN) .
 
+install: ## Install
+	$(GO) install .
+
 .PHONY: check
 check: ## Run tests
 	$(GO) test -v ./cmd
