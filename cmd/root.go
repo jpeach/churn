@@ -14,6 +14,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// MinimumInterval ...
+const MinimumInterval = time.Second
+
+// ErrUsage ...
 func ErrUsage(cmd *cobra.Command) {
 	fmt.Printf(cmd.UsageString())
 	os.Exit(64)
@@ -110,6 +114,10 @@ func newTaskForSpec(spec workload.PolicySpec, d k8s.DiscoveryHelper) (workload.T
 		default:
 			return nil, fmt.Errorf("invalid parameter name '%s'", k)
 		}
+	}
+
+	if p.Interval < MinimumInterval {
+		return nil, fmt.Errorf("interval is less than the minimum of %s", MinimumInterval)
 	}
 
 	switch spec.Operation {
