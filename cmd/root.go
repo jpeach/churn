@@ -51,6 +51,12 @@ Operations:
   of resources and parameters by a colon. A parameter is a key=value
   token that controls an aspect of the workload task.
 
+  Operations are only performed against resources that are labeled as
+  being managed by churn. Any resources that churn creates will have
+  this label applied.
+
+    app.kubernetes.io/managed-by: churn
+
 Operation Types:
   delete    Deletes Kubernetes API objects. If no resources are
             specified, this operation deletes httpproxies, ingresses,
